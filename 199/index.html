@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111713">
+  <title>Emberfall — A Tiny RPG</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #171b17;
+      --panel: #202820;
+      --panel-light: #29352b;
+      --cream: #f4e8c7;
+      --muted: #b1b69c;
+      --gold: #efc66d;
+      --green: #a8cf82;
+      --red: #e98770;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px 14px;
+      background:
+        radial-gradient(ellipse at 50% 0%, #293a2d 0, transparent 52%),
+        #111713;
+      color: var(--cream);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .game {
+      width: min(100%, 980px);
+      overflow: hidden;
+      border: 1px solid #657052;
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: 0 22px 70px #0008, 0 0 0 5px #111713;
+    }
+
+    .topbar {
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #414b3b;
+      background: #202820;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 19px;
+      font-weight: bold;
+      letter-spacing: .04em;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid #e5bb66;
+      border-radius: 9px;
+      background: #463a27;
+      color: var(--gold);
+      font-size: 20px;
+    }
+
+    .location {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .viewport {
+      position: relative;
+      background: #304d34;
+      line-height: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+    }
+
+    .toast {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      max-width: calc(100% - 32px);
+      padding: 10px 16px;
+      transform: translate(-50%, -8px);
+      border: 1px solid #776c50;
+      border-radius: 8px;
+      background: #181d18ed;
+      color: var(--cream);
+      font-size: 15px;
+      line-height: 1.35;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.visible {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+
+    .under-map {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(245px, .8fr);
+      gap: 14px;
+      padding: 15px;
+      border-top: 1px solid #414b3b;
+    }
+
+    .card {
+      min-height: 126px;
+      padding: 14px;
+      border: 1px solid #414b3b;
+      border-radius: 9px;
+      background: #1b221c;
+    }
+
+    .card-title {
+      margin: 0 0 10px;
+      color: var(--gold);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .stat {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 5px;
+      margin-bottom: 5px;
+    }
+
+    .stat-value { color: var(--cream); }
+
+    .bar {
+      height: 7px;
+      overflow: hidden;
+      border-radius: 5px;
+      background: #343b32;
+    }
+
+    .bar-fill {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: #91bd70;
+      transition: width .22s ease;
+    }
+
+    .bar-fill.mana { background: #76a6cd; }
+    .bar-fill.xp { background: #d5ad5e; }
+
+    .quest-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .quest-text strong { color: var(--cream); }
+    .quest-text .complete { color: var(--green); }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 19px 15px;
+      color: #aab09b;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    kbd {
+      padding: 2px 6px;
+      border: 1px solid #5b6651;
+      border-radius: 4px;
+      background: #293229;
+      color: var(--cream);
+      font: inherit;
+    }
+
+    @media (max-width: 620px) {
+      body { padding: 10px 7px; }
+      .topbar { min-height: 54px; padding: 9px 12px; }
+      .brand { font-size: 16px; }
+      .location { font-size: 10px; text-align: right; }
+      .under-map { grid-template-columns: 1fr; gap: 9px; padding: 10px; }
+      .card { min-height: auto; padding: 11px; }
+      .footer { padding: 0 12px 12px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game" aria-label="Emberfall role-playing game">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> EMBERFALL</div>
+      <div class="location" id="location">Willowmead · Village Green</div>
+    </header>
+    <div class="viewport">
+      <canvas id="world" width="960" height="540" aria-label="Game world. Use the arrow keys or WASD to move."></canvas>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+    <section class="under-map" aria-label="Character status">
+      <div class="card">
+        <h2 class="card-title">Adventurer · <span id="level">Level 1</span></h2>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-line"><span>♥ Health</span><span class="stat-value" id="hpText">30 / 30</span></div>
+            <div class="bar"><div class="bar-fill" id="hpBar"></div></div>
+          </div>
+          <div class="stat">
+            <div class="stat-line"><span>✦ Mana</span><span class="stat-value" id="mpText">12 / 12</span></div>
+            <div class="bar"><div class="bar-fill mana" id="mpBar"></div></div>
+          </div>
+          <div class="stat">
+            <div class="stat-line"><span>★ Experience</span><span class="stat-value" id="xpText">0 / 20</span></div>
+            <div class="bar"><div class="bar-fill xp" id="xpBar"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2 class="card-title">Village request</h2>
+        <p class="quest-text" id="questText">Find Elder Rowan near the well and press <kbd>E</kbd> to speak.</p>
+      </div>
+    </section>
+    <footer class="footer">
+      <span>Move <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> · Interact <kbd>E</kbd></span>
+      <span id="inventory">✦ 0 gold &nbsp; · &nbsp; ◈ 2 potions</span>
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("world");
+      const ctx = canvas.getContext("2d");
+      const TILE = 32;
+      const MAP_W = 56;
+      const MAP_H = 40;
+      const keys = new Set();
+      const player = { x: 8 * TILE + 16, y: 10 * TILE + 16, speed: 165, hp: 30, maxHp: 30, mp: 12, maxMp: 12, level: 1, xp: 0, gold: 0, potions: 2, facing: "down" };
+      const elder = { x: 11 * TILE + 16, y: 10 * TILE + 16 };
+      const quest = { active: false, done: false, kills: 0, target: 3 };
+      let combat = null;
+      let toastTimer;
+      let lastFrame = 0;
+      let worldTime = 0;
+
+      const camera = { x: 0, y: 0 };
+      const map = Array.from({ length: MAP_H }, (_, y) =>
+        Array.from({ length: MAP_W }, (_, x) => {
+          const forest = x > 20;
+          const nearPath = Math.abs(y - 12) <= 1 || (x > 25 && x < 29 && y > 7 && y < 18);
+          const village = x < 20 && y > 5 && y < 19;
+          if (nearPath) return "path";
+          if (!forest && village && (x + y) % 7 === 0) return "flowers";
+          return forest ? "forest" : "grass";
+        })
+      );
+
+      const trees = [
+        [3, 5], [7, 4], [16, 5], [18, 9], [4, 18], [9, 20], [16, 18], [19, 16],
+        [23, 5], [26, 5], [31, 6], [36, 4], [42, 6], [48, 5], [52, 8], [23, 20],
+        [29, 19], [34, 21], [40, 18], [47, 20], [52, 22], [22, 27], [28, 32],
+        [34, 28], [41, 32], [48, 29], [53, 34], [20, 36], [25, 37], [36, 37], [45, 36]
+      ];
+      const houses = [
+        { x: 5, y: 8, color: "#b96c4d", label: "ROWAN HOUSE" },
+        { x: 14, y: 13, color: "#d0a45f", label: "THE INN" }
+      ];
+
+      const slimes = [
+        { x: 32 * TILE + 16, y: 10 * TILE + 16, hp: 12, maxHp: 12, alive: true, seed: 1 },
+        { x: 38 * TILE + 16, y: 14 * TILE + 16, hp: 12, maxHp: 12, alive: true, seed: 2 },
+        { x: 45 * TILE + 16, y: 11 * TILE + 16, hp: 12, maxHp: 12, alive: true, seed: 3 },
+        { x: 51 * TILE + 16, y: 17 * TILE + 16, hp: 12, maxHp: 12, alive: true, seed: 4 },
+        { x: 33 * TILE + 16, y: 25 * TILE + 16, hp: 12, maxHp: 12, alive: true, seed: 5 },
+        { x: 43 * TILE + 16, y: 29 * TILE + 16, hp: 12, maxHp: 12, alive: true, seed: 6 }
+      ];
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("visible");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("visible"), 2400);
+      }
+
+      function updateHud() {
+        document.getElementById("hpText").textContent = `${player.hp} / ${player.maxHp}`;
+        document.getElementById("mpText").textContent = `${player.mp} / ${player.maxMp}`;
+        document.getElementById("xpText").textContent = `${player.xp} / ${player.level * 20}`;
+        document.getElementById("level").textContent = `Level ${player.level}`;
+        document.getElementById("hpBar").style.width = `${100 * player.hp / player.maxHp}%`;
+        document.getElementById("mpBar").style.width = `${100 * player.mp / player.maxMp}%`;
+        document.getElementById("xpBar").style.width = `${100 * player.xp / (player.level * 20)}%`;
+        document.getElementById("inventory").textContent = `✦ ${player.gold} gold   ·   ◈ ${player.potions} potions`;
+        const questEl = document.getElementById("questText");
+        if (quest.done) {
+          questEl.innerHTML = '<span class="complete"><strong>✓ Request complete!</strong> The grove is safe, thanks to you. Rowan\'s reward: 30 gold.</span>';
+        } else if (quest.active) {
+          questEl.innerHTML = `<strong>Clear the grove</strong><br>Defeat forest slimes: ${quest.kills} / ${quest.target}`;
+        } else {
+          questEl.innerHTML = 'Find Elder Rowan near the well and press <kbd>E</kbd> to speak.';
+        }
+      }
+
+      function drawGround() {
+        const startX = Math.max(0, Math.floor(camera.x / TILE));
+        const startY = Math.max(0, Math.floor(camera.y / TILE));
+        const endX = Math.min(MAP_W, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+        const endY = Math.min(MAP_H, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            const px = x * TILE - camera.x;
+            const py = y * TILE - camera.y;
+            const kind = map[y][x];
+            const variation = ((x * 13 + y * 7) % 5);
+            ctx.fillStyle = kind === "path" ? ["#8b7957", "#91805d", "#887553"][variation % 3]
+              : kind === "flowers" ? "#63834d"
+              : kind === "forest" ? ["#34583a", "#385d3c", "#315438"][variation % 3]
+              : ["#63884b", "#688d4e", "#5e8248", "#6b9052"][variation % 4];
+            ctx.fillRect(px, py, TILE, TILE);
+            if (kind === "path") {
+              ctx.fillStyle = "#a18d63";
+              ctx.fillRect(px + 8 + variation * 2, py + 8, 3, 2);
+            } else if (kind === "flowers") {
+              ctx.fillStyle = "#f0d899";
+              ctx.fillRect(px + 8, py + 9, 3, 3);
+              ctx.fillStyle = "#e9c7c3";
+              ctx.fillRect(px + 20, py + 21, 3, 3);
+            } else if ((x * 31 + y * 19) % 11 === 0) {
+              ctx.fillStyle = "#87a95e";
+              ctx.fillRect(px + 8, py + 19, 2, 5);
+              ctx.fillRect(px + 7, py + 21, 4, 2);
+            }
+          }
+        }
+      }
+
+      function drawHouse(house) {
+        const x = house.x * TILE - camera.x;
+        const y = house.y * TILE - camera.y;
+        ctx.fillStyle = "#0004";
+        ctx.fillRect(x + 9, y + 48, 112, 10);
+        ctx.fillStyle = "#e0c99a";
+        ctx.fillRect(x + 18, y + 22, 94, 48);
+        ctx.fillStyle = house.color;
+        ctx.beginPath();
+        ctx.moveTo(x + 7, y + 28);
+        ctx.lineTo(x + 65, y - 4);
+        ctx.lineTo(x + 123, y + 28);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#784938";
+        ctx.fillRect(x + 51, y + 43, 23, 27);
+        ctx.fillStyle = "#f0d989";
+        ctx.fillRect(x + 28, y + 37, 14, 13);
+        ctx.fillRect(x + 88, y + 37, 14, 13);
+        ctx.fillStyle = "#7a5038";
+        ctx.fillRect(x + 34, y + 43, 3, 3);
+        ctx.fillRect(x + 94, y + 43, 3, 3);
+        ctx.fillStyle = "#fbf0d5";
+        ctx.font = "10px Georgia";
+        ctx.textAlign = "center";
+        ctx.fillText(house.label, x + 65, y + 84);
+      }
+
+      function drawTree(tx, ty) {
+        const x = tx * TILE - camera.x + TILE / 2;
+        const y = ty * TILE - camera.y + TILE / 2;
+        ctx.fillStyle = "#0003";
+        ctx.beginPath();
+        ctx.ellipse(x + 1, y + 17, 17, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#6d4c32";
+        ctx.fillRect(x - 4, y + 1, 9, 25);
+        ctx.fillStyle = "#24442f";
+        ctx.beginPath();
+        ctx.arc(x, y - 4, 19, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#37623b";
+        ctx.beginPath();
+        ctx.arc(x - 5, y - 8, 13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#507544";
+        ctx.fillRect(x - 10, y - 14, 5, 4);
+      }
+
+      function drawPerson(x, y, robe, hair, isPlayer) {
+        const px = x - camera.x;
+        const py = y - camera.y;
+        ctx.fillStyle = "#0004";
+        ctx.beginPath();
+        ctx.ellipse(px, py + 8, 10, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = robe;
+        ctx.fillRect(px - 8, py - 5, 16, 16);
+        ctx.fillStyle = "#e2b58b";
+        ctx.fillRect(px - 6, py - 17, 12, 13);
+        ctx.fillStyle = hair;
+        ctx.fillRect(px - 7, py - 20, 14, 6);
+        ctx.fillRect(px - 8, py - 17, 3, 8);
+        ctx.fillStyle = "#352e28";
+        const eyeOffset = player.facing === "left" ? -3 : player.facing === "right" ? 2 : 0;
+        ctx.fillRect(px + eyeOffset, py - 11, 2, 2);
+        if (isPlayer) {
+          ctx.fillStyle = "#edcf82";
+          ctx.fillRect(px - 2, py - 7, 4, 3);
+        }
+      }
+
+      function drawSlime(slime) {
+        if (!slime.alive) return;
+        const x = slime.x - camera.x;
+        const y = slime.y - camera.y + Math.sin(worldTime * 3 + slime.seed) * 2;
+        ctx.fillStyle = "#0003";
+        ctx.beginPath();
+        ctx.ellipse(x, y + 7, 15, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#80b875";
+        ctx.beginPath();
+        ctx.ellipse(x, y, 14, 11, 0, Math.PI, Math.PI * 2);
+        ctx.lineTo(x + 14, y + 5);
+        ctx.quadraticCurveTo(x, y + 16, x - 14, y + 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#eff1c1";
+        ctx.fillRect(x - 7, y - 2, 4, 5);
+        ctx.fillRect(x + 3, y - 2, 4, 5);
+        ctx.fillStyle = "#354536";
+        ctx.fillRect(x - 6, y, 2, 3);
+        ctx.fillRect(x + 4, y, 2, 3);
+        if (quest.active) {
+          ctx.fillStyle = "#e7d39b";
+          ctx.fillRect(x - 2, y - 23, 4, 4);
+        }
+      }
+
+      function drawWorld() {
+        drawGround();
+        for (const house of houses) drawHouse(house);
+        for (const [tx, ty] of trees) drawTree(tx, ty);
+        drawSlime(slimes[0]);
+        drawSlime(slimes[1]);
+        drawSlime(slimes[2]);
+        drawSlime(slimes[3]);
+        drawSlime(slimes[4]);
+        drawSlime(slimes[5]);
+        drawPerson(elder.x, elder.y, "#7c8c68", "#d6c49b", false);
+        drawPerson(player.x, player.y, "#557899", "#725039", true);
+        if (Math.hypot(player.x - elder.x, player.y - elder.y) < 74 && !combat) {
+          ctx.fillStyle = "#fff1bd";
+          ctx.font = "bold 13px Georgia";
+          ctx.textAlign = "center";
+          ctx.fillText("E  Speak", elder.x - camera.x, elder.y - camera.y - 31);
+        }
+        const inForest = player.x > 20 * TILE;
+        document.getElementById("location").textContent = inForest ? "Willowmead · Whispering Grove" : "Willowmead · Village Green";
+      }
+
+      function drawBattle() {
+        ctx.fillStyle = "#101611d9";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#26372b";
+        ctx.fillRect(0, 0, canvas.width, 340);
+        ctx.fillStyle = "#314835";
+        ctx.fillRect(0, 285, canvas.width, 55);
+
+        ctx.fillStyle = "#c8a76c";
+        ctx.font = "15px Georgia";
+        ctx.textAlign = "center";
+        ctx.fillText("A forest slime blocks your path!", canvas.width / 2, 35);
+
+        const slimeX = canvas.width / 2;
+        const slimeY = 172;
+        const wobble = Math.sin(worldTime * 4) * 3;
+        ctx.fillStyle = "#10181188";
+        ctx.beginPath();
+        ctx.ellipse(slimeX, slimeY + 35, 47, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#8bbb79";
+        ctx.beginPath();
+        ctx.ellipse(slimeX, slimeY + wobble, 42, 32, 0, Math.PI, Math.PI * 2);
+        ctx.lineTo(slimeX + 42, slimeY + 20);
+        ctx.quadraticCurveTo(slimeX, slimeY + 57, slimeX - 42, slimeY + 20);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#f2f0cd";
+        ctx.fillRect(slimeX - 19, slimeY - 4 + wobble, 11, 15);
+        ctx.fillRect(slimeX + 8, slimeY - 4 + wobble, 11, 15);
+        ctx.fillStyle = "#29362b";
+        ctx.fillRect(slimeX - 16, slimeY + wobble, 5, 9);
+        ctx.fillRect(slimeX + 11, slimeY + wobble, 5, 9);
+
+        ctx.fillStyle = "#d9d1b1";
+        ctx.font = "13px Georgia";
+        ctx.fillText("Forest Slime", slimeX, 229);
+        ctx.fillStyle = "#172018";
+        ctx.fillRect(slimeX - 53, 239, 106, 8);
+        ctx.fillStyle = "#df8470";
+        ctx.fillRect(slimeX - 53, 239, 106 * Math.max(0, combat.enemy.hp / combat.enemy.maxHp), 8);
+
+        ctx.fillStyle = "#1a211b";
+        ctx.fillRect(0, 340, canvas.width, 200);
+        ctx.strokeStyle = "#647255";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(22, 357, canvas.width - 44, 160);
+        ctx.fillStyle = "#f1e7cc";
+        ctx.textAlign = "left";
+        ctx.font = "17px Georgia";
+        ctx.fillText(combat.message, 43, 387, canvas.width - 86);
+        ctx.fillStyle = "#bdc1ad";
+        ctx.font = "13px Georgia";
+        ctx.fillText(`Your health: ${player.hp} / ${player.maxHp}     ·     Mana: ${player.mp} / ${player.maxMp}`, 43, 415);
+
+        const buttons = combat.phase === "player"
+          ? [
+            { label: "⚔  Attack", key: "1", x: 44 },
+            { label: "✦  Firebolt  (3 MP)", key: "2", x: 263 },
+            { label: `◈  Potion  (${player.potions})`, key: "3", x: 482 },
+            { label: "↗  Flee", key: "4", x: 701 }
+          ]
+          : [{ label: "Your turn...", key: "", x: 44 }];
+        for (const button of buttons) {
+          ctx.fillStyle = "#344333";
+          ctx.fillRect(button.x, 446, 200, 48);
+          ctx.strokeStyle = "#82906a";
+          ctx.strokeRect(button.x, 446, 200, 48);
+          ctx.fillStyle = combat.phase === "player" ? "#f0e5c6" : "#a9b09c";
+          ctx.font = "14px Georgia";
+          ctx.textAlign = "center";
+          ctx.fillText(button.label, button.x + 100, 475);
+          if (button.key) {
+            ctx.fillStyle = "#e6c477";
+            ctx.font = "11px Georgia";
+            ctx.fillText(button.key, button.x + 190, 458);
+          }
+        }
+      }
+
+      function isBlocked(x, y) {
+        const tx = Math.floor(x / TILE);
+        const ty = Math.floor(y / TILE);
+        if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
+        for (const [treeX, treeY] of trees) {
+          if (Math.abs(x - (treeX * TILE + 16)) < 19 && Math.abs(y - (treeY * TILE + 16)) < 19) return true;
+        }
+        for (const house of houses) {
+          if (x > house.x * TILE + 8 && x < house.x * TILE + 122 && y > house.y * TILE + 14 && y < house.y * TILE + 67) return true;
+        }
+        return false;
+      }
+
+      function beginBattle(slime) {
+        if (combat || !slime.alive) return;
+        combat = { enemy: slime, phase: "player", message: "What will you do?" };
+        keys.clear();
+        showToast("A forest slime attacks!");
+      }
+
+      function gainExperience(amount) {
+        player.xp += amount;
+        while (player.xp >= player.level * 20) {
+          player.xp -= player.level * 20;
+          player.level++;
+          player.maxHp += 6;
+          player.maxMp += 2;
+          player.hp = player.maxHp;
+          player.mp = player.maxMp;
+          showToast(`Level up! You are now level ${player.level}.`);
+        }
+      }
+
+      function finishBattle(won) {
+        const enemy = combat.enemy;
+        combat = null;
+        if (won) {
+          enemy.alive = false;
+          player.gold += 5;
+          gainExperience(8);
+          if (quest.active && !quest.done) {
+            quest.kills++;
+            if (quest.kills >= quest.target) {
+              quest.done = true;
+              player.gold += 30;
+              player.potions++;
+              showToast("Quest complete! Rowan rewards you with 30 gold and a potion.");
+            } else {
+              showToast(`Slime defeated! ${quest.target - quest.kills} more to clear the grove.`);
+            }
+          } else {
+            showToast("Slime defeated! You found 5 gold.");
+          }
+        } else {
+          player.hp = Math.max(1, Math.ceil(player.maxHp / 2));
+          player.mp = Math.max(0, Math.ceil(player.maxMp / 2));
+          showToast("You retreat to the village to recover. Catch your breath!");
+        }
+        updateHud();
+      }
+
+      function enemyTurn() {
+        if (!combat) return;
+        const damage = 3 + Math.floor(Math.random() * 4);
+        player.hp = Math.max(0, player.hp - damage);
+        if (player.hp <= 0) {
+          combat.message = `The slime hits for ${damage}. You stumble back to safety...`;
+          updateHud();
+          setTimeout(() => finishBattle(false), 850);
+          return;
+        }
+        combat.message = `The slime bumps you for ${damage} damage. Your turn!`;
+        combat.phase = "player";
+        updateHud();
+      }
+
+      function playerAction(action) {
+        if (!combat || combat.phase !== "player") return;
+        const enemy = combat.enemy;
+        if (action === "attack") {
+          const damage = 5 + Math.floor(Math.random() * 4) + player.level;
+          enemy.hp = Math.max(0, enemy.hp - damage);
+          combat.message = `You strike the slime for ${damage} damage!`;
+        } else if (action === "spell") {
+          if (player.mp < 3) {
+            combat.message = "Not enough mana. Choose another action.";
+            return;
+          }
+          player.mp -= 3;
+          const damage = 10 + Math.floor(Math.random() * 5) + player.level;
+          enemy.hp = Math.max(0, enemy.hp - damage);
+          combat.message = `Your firebolt hits for ${damage} damage!`;
+        } else if (action === "potion") {
+          if (player.potions < 1) {
+            combat.message = "You're out of potions. Choose another action.";
+            return;
+          }
+          if (player.hp === player.maxHp && player.mp === player.maxMp) {
+            combat.message = "You're already at full health and mana.";
+            return;
+          }
+          player.potions--;
+          const healed = Math.min(15, player.maxHp - player.hp);
+          const restored = Math.min(5, player.maxMp - player.mp);
+          player.hp += healed;
+          player.mp += restored;
+          combat.message = `Potion used: restored ${healed} health and ${restored} mana.`;
+        } else if (action === "flee") {
+          finishBattle(false);
+          return;
+        }
+        updateHud();
+        if (enemy.hp <= 0) {
+          combat.message += " Victory!";
+          setTimeout(() => finishBattle(true), 500);
+          return;
+        }
+        combat.phase = "enemy";
+        setTimeout(enemyTurn, 650);
+      }
+
+      function interact() {
+        if (combat) return;
+        if (Math.hypot(player.x - elder.x, player.y - elder.y) < 72) {
+          if (quest.done) {
+            showToast("Elder Rowan: Willowmead will remember your kindness, hero.");
+          } else if (quest.active) {
+            showToast(`Elder Rowan: The grove still needs you. Slimes defeated: ${quest.kills} / ${quest.target}.`);
+          } else {
+            quest.active = true;
+            showToast("Elder Rowan: Three slimes haunt the grove. Please help us!");
+            updateHud();
+          }
+          return;
+        }
+        showToast("There is no one nearby to talk to.");
+      }
+
+      function movePlayer(dt) {
+        if (combat) return;
+        let dx = 0;
+        let dy = 0;
+        if (keys.has("arrowleft") || keys.has("a")) dx--;
+        if (keys.has("arrowright") || keys.has("d")) dx++;
+        if (keys.has("arrowup") || keys.has("w")) dy--;
+        if (keys.has("arrowdown") || keys.has("s")) dy++;
+        if (dx || dy) {
+          const length = Math.hypot(dx, dy);
+          dx = dx / length * player.speed * dt;
+          dy = dy / length * player.speed * dt;
+          if (Math.abs(dx) > Math.abs(dy)) player.facing = dx < 0 ? "left" : "right";
+          else player.facing = dy < 0 ? "up" : "down";
+          if (!isBlocked(player.x + dx, player.y - 7)) player.x += dx;
+          if (!isBlocked(player.x, player.y + dy - 7)) player.y += dy;
+        }
+        for (const slime of slimes) {
+          if (slime.alive && Math.hypot(player.x - slime.x, player.y - slime.y) < 26) {
+            beginBattle(slime);
+            break;
+          }
+        }
+      }
+
+      function frame(timestamp) {
+        const dt = Math.min((timestamp - lastFrame) / 1000 || 0, 0.05);
+        lastFrame = timestamp;
+        worldTime = timestamp / 1000;
+        movePlayer(dt);
+        camera.x = Math.max(0, Math.min(MAP_W * TILE - canvas.width, player.x - canvas.width / 2));
+        camera.y = Math.max(0, Math.min(MAP_H * TILE - canvas.height, player.y - canvas.height / 2));
+        drawWorld();
+        if (combat) drawBattle();
+        requestAnimationFrame(frame);
+      }
+
+      function keyAction(key) {
+        if (!combat || combat.phase !== "player") return;
+        const actions = { "1": "attack", "2": "spell", "3": "potion", "4": "flee" };
+        if (actions[key]) playerAction(actions[key]);
+      }
+
+      window.addEventListener("keydown", (event) => {
+        const key = event.key.toLowerCase();
+        if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) event.preventDefault();
+        if (key === "e") {
+          if (!event.repeat) interact();
+        } else if (combat) {
+          keyAction(key);
+        } else if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+          keys.add(key);
+        }
+      });
+      window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
+      window.addEventListener("blur", () => keys.clear());
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (!combat || combat.phase !== "player") return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left) * canvas.width / rect.width;
+        if (x >= 44 && x <= 244) playerAction("attack");
+        else if (x >= 263 && x <= 463) playerAction("spell");
+        else if (x >= 482 && x <= 682) playerAction("potion");
+        else if (x >= 701 && x <= 901) playerAction("flee");
+      });
+
+      updateHud();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
